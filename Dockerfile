@@ -1,7 +1,13 @@
 FROM node:20-slim AS base
 
 FROM base AS deps
-RUN apk add --no-cache libc6-compat vips-dev python3 make g++ pkgconfig
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    pkg-config \
+    libvips-dev \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
@@ -30,7 +36,9 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-RUN apk add --no-cache vips
+RUN apt-get update && apt-get install -y \
+    libvips \
+ && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
