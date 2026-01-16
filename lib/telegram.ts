@@ -13,15 +13,17 @@ if (token && chatId && !isBuildTime && typeof window === 'undefined') {
   try {
     bot = new TelegramBot(token, { polling: false })
     
-    setTimeout(() => {
-      initializeTelegramPolling()
+    setTimeout(async () => {
+      await initializeTelegramPolling()
     }, 3000)
   } catch (error) {
     console.error('Failed to initialize Telegram bot:', error)
   }
 }
 
-export function initializeTelegramPolling() {
+export async function initializeTelegramPolling() {
+  const { initializeMinIO } = await import('./minio-init')
+  await initializeMinIO()
   const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
   
   if (isBuildTime || !token || !chatId || isPolling || !bot) {

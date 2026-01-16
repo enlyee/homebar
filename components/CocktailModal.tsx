@@ -2,7 +2,6 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
-import { useState } from 'react'
 import type { Cocktail } from '@/types'
 
 interface CocktailModalProps {
@@ -32,13 +31,17 @@ export default function CocktailModal({
   onOrder,
   isOrdering,
 }: CocktailModalProps) {
-  const [imageError, setImageError] = useState(false)
-
   if (!cocktail) return null
 
   const handleOrder = async () => {
     await onOrder(cocktail.id)
   }
+
+  const imageUrl = cocktail.photoUrl?.startsWith('/api/uploads/') 
+    ? cocktail.photoUrl 
+    : cocktail.photoUrl?.startsWith('/uploads/')
+    ? `/api${cocktail.photoUrl}`
+    : cocktail.photoUrl
 
   return (
     <AnimatePresence>
@@ -62,40 +65,36 @@ export default function CocktailModal({
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl sm:rounded-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl touch-manipulation"
             >
-              <div className="relative h-48 sm:h-64 w-full">
-                {!imageError ? (
+              {imageUrl && (
+                <div className="relative w-full h-64 sm:h-80 overflow-hidden">
                   <Image
-                    src={cocktail.photoUrl}
+                    src={imageUrl}
                     alt={cocktail.name}
                     fill
                     className="object-cover"
                     unoptimized={true}
                     onError={(e) => {
-                      console.error('Image load error:', cocktail.photoUrl)
-                      setImageError(true)
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
                     }}
                   />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-400">Изображение не загружено</span>
-                  </div>
-                )}
+                </div>
+              )}
+              <div className="relative p-4 sm:p-6">
                 <button
                   onClick={onClose}
-                  className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 sm:w-12 sm:h-12 bg-white/90 rounded-full flex items-center justify-center hover:bg-white active:bg-white/80 transition-colors touch-manipulation text-lg sm:text-xl"
+                  className="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 sm:w-12 sm:h-12 bg-white/90 rounded-full flex items-center justify-center hover:bg-white active:bg-white/80 transition-colors touch-manipulation text-lg sm:text-xl shadow-md"
                   aria-label="Закрыть"
                 >
                   ✕
                 </button>
-                <div className="absolute top-4 left-4 flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-4">
                   <div
                     className={`px-3 py-1 rounded-full text-white text-sm font-medium ${strengthColors[cocktail.strength]}`}
                   >
                     {strengthLabels[cocktail.strength]}
                   </div>
                 </div>
-              </div>
-              <div className="p-4 sm:p-6">
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">
                   {cocktail.name}
                 </h2>

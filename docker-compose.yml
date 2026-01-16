@@ -1,4 +1,25 @@
 services:
+  minio:
+    image: minio/minio:latest
+    container_name: homebar-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - homebar-network
+
   postgres:
     image: postgres:16-alpine
     container_name: homebar-postgres
@@ -9,7 +30,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-homebar}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - uploads_data:/app/public/uploads
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-homebar}"]
       interval: 10s
@@ -35,18 +55,24 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-homebar}:${POSTGRES_PASSWORD:-homebar_password}@postgres:5432/${POSTGRES_DB:-homebar}?schema=public
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - MINIO_BUCKET=${MINIO_BUCKET:-uploads}
+      - MINIO_USE_SSL=false
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - uploads_data:/app/public/uploads
+      minio:
+        condition: service_healthy
     networks:
       - homebar-network
 
 volumes:
   postgres_data:
     driver: local
-  uploads_data:
+  minio_data:
     driver: local
 
 networks:

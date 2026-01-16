@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { name, photoUrl, description, ingredients, recipe, strength } = body
 
-    if (!name || !photoUrl || !description || !ingredients || !recipe || !strength) {
+    if (!name || !description || !ingredients || !recipe || !strength) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     
     const cocktail = cocktailRepository.create({
       name,
-      photoUrl,
+      photoUrl: photoUrl || '',
       description,
       ingredients,
       recipe,

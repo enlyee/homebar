@@ -1,48 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import Image from 'next/image'
 import Link from 'next/link'
-import ReactCrop, { type Crop, makeAspectCrop, centerCrop, PixelCrop } from 'react-image-crop'
+import Image from 'next/image'
+import ReactCrop, { type Crop, type PixelCrop, makeAspectCrop, centerCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import type { Cocktail, Ingredient } from '@/types'
-
-function canvasPreview(
-  image: HTMLImageElement,
-  canvas: HTMLCanvasElement,
-  crop: PixelCrop,
-) {
-  const ctx = canvas.getContext('2d')
-  if (!ctx) {
-    throw new Error('No 2d context')
-  }
-
-  const scaleX = image.naturalWidth / image.width
-  const scaleY = image.naturalHeight / image.height
-  const pixelRatio = window.devicePixelRatio
-
-  canvas.width = Math.floor(crop.width * scaleX * pixelRatio)
-  canvas.height = Math.floor(crop.height * scaleY * pixelRatio)
-
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
-  ctx.imageSmoothingQuality = 'high'
-
-  const cropX = crop.x * scaleX
-  const cropY = crop.y * scaleY
-
-  ctx.drawImage(
-    image,
-    cropX,
-    cropY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0,
-    0,
-    crop.width * scaleX,
-    crop.height * scaleY,
-  )
-}
 
 export default function AdminPage() {
   const [cocktails, setCocktails] = useState<Cocktail[]>([])
@@ -57,9 +21,6 @@ export default function AdminPage() {
     recipe: '',
     strength: 1 as 1 | 2 | 3,
   })
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadMethod, setUploadMethod] = useState<'file' | 'url'>('file')
-  
   const [imgSrc, setImgSrc] = useState('')
   const [crop, setCrop] = useState<Crop>()
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>()
@@ -93,7 +54,10 @@ export default function AdminPage() {
       recipe: '',
       strength: 1,
     })
-    setUploadMethod('file')
+    setImgSrc('')
+    setCrop(undefined)
+    setCompletedCrop(undefined)
+    setShowCrop(false)
     setIsModalOpen(true)
   }
 
@@ -101,17 +65,16 @@ export default function AdminPage() {
     setEditingCocktail(cocktail)
     setFormData({
       name: cocktail.name,
-      photoUrl: cocktail.photoUrl,
+      photoUrl: cocktail.photoUrl || '',
       description: cocktail.description,
       ingredients: cocktail.ingredients as Ingredient[],
       recipe: cocktail.recipe,
       strength: cocktail.strength,
     })
-    setUploadMethod(cocktail.photoUrl.startsWith('/uploads/') ? 'file' : 'url')
-    setShowCrop(false)
-    setImgSrc('')
+    setImgSrc(cocktail.photoUrl || '')
     setCrop(undefined)
     setCompletedCrop(undefined)
+    setShowCrop(false)
     setIsModalOpen(true)
   }
 
@@ -129,6 +92,135 @@ export default function AdminPage() {
     })
   }
 
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget
+    const crop = makeAspectCrop(
+      {
+        unit: '%',
+        width: 90,
+      },
+      4 / 3,
+      width,
+      height
+    )
+    setCrop(crop)
+  }
+
+  const canvasPreview = (
+    image: HTMLImageElement,
+    canvas: HTMLCanvasElement,
+    crop: PixelCrop
+  ) => {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const scaleX = image.naturalWidth / image.width
+    const scaleY = image.naturalHeight / image.height
+    const pixelRatio = window.devicePixelRatio
+
+    canvas.width = Math.floor(crop.width * scaleX * pixelRatio)
+    canvas.height = Math.floor(crop.height * scaleY * pixelRatio)
+
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    ctx.imageSmoothingQuality = 'high'
+
+    const cropX = crop.x * scaleX
+    const cropY = crop.y * scaleY
+
+    ctx.drawImage(
+      image,
+      cropX,
+      cropY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width * scaleX,
+      crop.height * scaleY
+    )
+  }
+
+  const handleUploadImage = async () => {
+    if (!completedCrop || !previewCanvasRef.current || !imgRef.current) {
+      return
+    }
+
+    previewCanvasRef.current.toBlob(async (blob) => {
+      if (!blob) return
+
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', blob, 'image.webp')
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: uploadFormData,
+        })
+
+        const data = await response.json()
+        if (data.success && data.url) {
+          setFormData((prev) => ({ ...prev, photoUrl: data.url }))
+          setShowCrop(false)
+          setImgSrc('')
+          setCrop(undefined)
+          setCompletedCrop(undefined)
+        } else {
+          alert(data.error || 'Failed to upload image')
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        alert('Error uploading image')
+      }
+    }, 'image/webp', 0.85)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.addEventListener('load', () => {
+      setImgSrc(reader.result as string)
+      setShowCrop(true)
+    })
+    reader.readAsDataURL(file)
+  }
+
+  const handleUrlChange = async (url: string) => {
+    if (!url) {
+      setImgSrc('')
+      setShowCrop(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+
+      const data = await response.json()
+      if (data.success && data.url) {
+        setFormData((prev) => ({ ...prev, photoUrl: data.url }))
+        setImgSrc('')
+        setShowCrop(false)
+      } else {
+        setImgSrc(url)
+        setShowCrop(true)
+      }
+    } catch (error) {
+      setImgSrc(url)
+      setShowCrop(true)
+    }
+  }
+
+  useEffect(() => {
+    if (completedCrop && imgRef.current && previewCanvasRef.current) {
+      canvasPreview(imgRef.current, previewCanvasRef.current, completedCrop)
+    }
+  }, [completedCrop])
+
   const handleIngredientChange = (index: number, field: 'name' | 'amount', value: string) => {
     const newIngredients = [...formData.ingredients]
     newIngredients[index][field] = value
@@ -138,7 +230,7 @@ export default function AdminPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.photoUrl || !formData.description || !formData.recipe) {
+    if (!formData.name || !formData.description || !formData.recipe) {
       alert('Please fill all required fields')
       return
     }
@@ -225,20 +317,25 @@ export default function AdminPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white rounded-xl shadow-md overflow-hidden"
               >
-                <div className="relative w-full h-48">
-                  <Image
-                    src={cocktail.photoUrl}
-                    alt={cocktail.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    unoptimized={true}
-                    onError={(e) => {
-                      console.error('Image load error:', cocktail.photoUrl)
-                      e.currentTarget.src = '/placeholder.svg'
-                    }}
-                  />
-                </div>
+                {cocktail.photoUrl && (
+                  <div className="relative w-full h-48 overflow-hidden">
+                    <Image
+                      src={cocktail.photoUrl.startsWith('/api/uploads/') 
+                        ? cocktail.photoUrl 
+                        : cocktail.photoUrl.startsWith('/uploads/')
+                        ? `/api${cocktail.photoUrl}`
+                        : cocktail.photoUrl}
+                      alt={cocktail.name}
+                      fill
+                      className="object-cover"
+                      unoptimized={true}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="p-3 sm:p-4">
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                     {cocktail.name}
@@ -292,6 +389,88 @@ export default function AdminPage() {
             <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Фото
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base min-h-[48px]"
+                  />
+                  <div className="text-sm text-gray-500">или</div>
+                  <input
+                    type="url"
+                    placeholder="URL изображения"
+                    value={imgSrc && !showCrop ? imgSrc : ''}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base min-h-[48px]"
+                  />
+                  {formData.photoUrl && !showCrop && (
+                    <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-300">
+                      <Image
+                        src={formData.photoUrl.startsWith('/api/uploads/') 
+                          ? formData.photoUrl 
+                          : formData.photoUrl.startsWith('/uploads/')
+                          ? `/api${formData.photoUrl}`
+                          : formData.photoUrl}
+                        alt="Preview"
+                        fill
+                        className="object-cover"
+                        unoptimized={true}
+                      />
+                    </div>
+                  )}
+                  {showCrop && imgSrc && (
+                    <div className="space-y-2">
+                      <ReactCrop
+                        crop={crop}
+                        onChange={(_, percentCrop) => setCrop(percentCrop)}
+                        onComplete={(c) => setCompletedCrop(c)}
+                        aspect={4 / 3}
+                      >
+                        <img
+                          ref={imgRef}
+                          alt="Crop me"
+                          src={imgSrc}
+                          style={{ maxHeight: '400px', maxWidth: '100%' }}
+                          onLoad={onImageLoad}
+                        />
+                      </ReactCrop>
+                      {completedCrop && (
+                        <div className="space-y-2">
+                          <canvas
+                            ref={previewCanvasRef}
+                            style={{ display: 'none' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleUploadImage}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                          >
+                            Применить обрезку
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCrop(false)
+                              setImgSrc('')
+                              setCrop(undefined)
+                              setCompletedCrop(undefined)
+                            }}
+                            className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Название *
                 </label>
                 <input
@@ -301,387 +480,6 @@ export default function AdminPage() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base min-h-[48px]"
                   required
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Фотография *
-                </label>
-                
-                {/* Переключатель метода загрузки */}
-                <div className="flex gap-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMethod('file')}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors min-h-[44px] ${
-                      uploadMethod === 'file'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    📁 Загрузить файл
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadMethod('url')}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors min-h-[44px] ${
-                      uploadMethod === 'url'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    🔗 По ссылке
-                  </button>
-                </div>
-
-                {uploadMethod === 'file' ? (
-                  <div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-
-                        console.log('File selected:', file.name)
-
-                        const reader = new FileReader()
-                        reader.onerror = () => {
-                          console.error('Error reading file')
-                          alert('Ошибка при чтении файла')
-                        }
-                        reader.onload = () => {
-                          const result = reader.result as string
-                          console.log('File read, setting imgSrc and showCrop')
-                          setImgSrc(result)
-                          setShowCrop(true)
-                          setFormData({ ...formData, photoUrl: '' })
-                        }
-                        reader.readAsDataURL(file)
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base min-h-[48px]"
-                      disabled={isUploading}
-                    />
-                    
-                    {showCrop && imgSrc && (
-                      <div className="mt-4 space-y-3">
-                        <p className="text-sm font-medium text-gray-700">Select crop area (4:3 ratio):</p>
-                        <div className="relative w-full overflow-auto bg-gray-100 rounded-lg p-2 max-h-[500px]">
-                          {imgSrc && (
-                            <ReactCrop
-                              crop={crop}
-                              onChange={(_, percentCrop) => {
-                                setCrop(percentCrop)
-                              }}
-                              onComplete={(c) => {
-                                console.log('Crop completed:', c)
-                                setCompletedCrop(c)
-                              }}
-                              aspect={800 / 600}
-                              minWidth={200}
-                              minHeight={150}
-                              className="max-w-full"
-                            >
-                              <img
-                                ref={imgRef}
-                                alt="Crop me"
-                                src={imgSrc}
-                                style={{ 
-                                  maxWidth: '100%', 
-                                  maxHeight: '400px',
-                                  display: 'block'
-                                }}
-                                onLoad={(e) => {
-                                  console.log('Image loaded:', e.currentTarget.width, e.currentTarget.height)
-                                  const { width, height } = e.currentTarget
-                                  const initialCrop = makeAspectCrop(
-                                    {
-                                      unit: '%',
-                                      width: 90,
-                                    },
-                                    800 / 600,
-                                    width,
-                                    height
-                                  )
-                                  const centeredCrop = centerCrop(initialCrop, width, height)
-                                  console.log('Setting initial crop:', centeredCrop)
-                                  setCrop(centeredCrop)
-                                }}
-                                onError={(e) => {
-                                  console.error('Image load error:', e)
-                                  alert('Ошибка при загрузке изображения')
-                                }}
-                              />
-                            </ReactCrop>
-                          )}
-                        </div>
-                        {completedCrop && (
-                          <div className="space-y-2">
-                            <canvas
-                              ref={previewCanvasRef}
-                              style={{
-                                display: 'none',
-                              }}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!imgRef.current || !previewCanvasRef.current || !completedCrop) {
-                                    console.error('Missing refs or crop')
-                                    return
-                                  }
-
-                                  console.log('Applying crop:', completedCrop)
-                                  canvasPreview(
-                                    imgRef.current,
-                                    previewCanvasRef.current,
-                                    completedCrop
-                                  )
-
-                                  previewCanvasRef.current.toBlob(async (blob) => {
-                                    if (!blob) {
-                                      console.error('Failed to create blob')
-                                      return
-                                    }
-
-                                    setIsUploading(true)
-                                    try {
-                                      const uploadFormData = new FormData()
-                                      uploadFormData.append('file', blob, 'cropped-image.webp')
-
-                                      const response = await fetch('/api/upload', {
-                                        method: 'POST',
-                                        body: uploadFormData,
-                                      })
-
-                                      const data = await response.json()
-
-                                      if (data.success) {
-                                        console.log('Upload successful:', data.url)
-                                        setFormData({ ...formData, photoUrl: data.url })
-                                        setShowCrop(false)
-                                        setImgSrc('')
-                                        setCrop(undefined)
-                                        setCompletedCrop(undefined)
-                                      } else {
-                                        alert(data.error || 'Ошибка при загрузке изображения')
-                                      }
-                                    } catch (error) {
-                                      console.error('Error uploading file:', error)
-                                      alert('Ошибка при загрузке изображения')
-                                    } finally {
-                                      setIsUploading(false)
-                                    }
-                                  }, 'image/webp', 0.85)
-                                }}
-                                disabled={isUploading}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-                              >
-                                {isUploading ? 'Загрузка...' : '✅ Применить обрезку'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowCrop(false)
-                                  setImgSrc('')
-                                  setCrop(undefined)
-                                  setCompletedCrop(undefined)
-                                }}
-                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 active:bg-gray-400 transition-colors min-h-[44px]"
-                              >
-                                Отмена
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {isUploading && (
-                      <p className="mt-2 text-sm text-gray-500">Загрузка и обработка изображения...</p>
-                    )}
-                    {formData.photoUrl && !isUploading && !showCrop && (
-                      <div className="mt-3">
-                        <p className="text-sm text-gray-600 mb-2">Предпросмотр:</p>
-                        <img
-                          src={formData.photoUrl}
-                          alt="Preview"
-                          className="w-full h-48 object-cover rounded-lg border border-gray-300"
-                          onError={(e) => {
-                            console.error('Preview image error')
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      type="url"
-                      placeholder="https://example.com/image.jpg"
-                      value={formData.photoUrl}
-                      onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base min-h-[48px] mb-2"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!formData.photoUrl) {
-                          alert('Enter image URL')
-                          return
-                        }
-
-                        try {
-                          const response = await fetch(formData.photoUrl)
-                          const blob = await response.blob()
-                          const reader = new FileReader()
-                          reader.onload = () => {
-                            const result = reader.result as string
-                            setImgSrc(result)
-                            setShowCrop(true)
-                            setFormData({ ...formData, photoUrl: '' })
-                          }
-                          reader.readAsDataURL(blob)
-                        } catch (error) {
-                          console.error('Error loading image from URL:', error)
-                          alert('Ошибка при загрузке изображения по URL')
-                        }
-                      }}
-                      disabled={isUploading || !formData.photoUrl}
-                      className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] mb-2"
-                    >
-                      📥 Загрузить для обрезки
-                    </button>
-                    
-                    {/* Компонент обрезки для URL */}
-                    {showCrop && imgSrc && uploadMethod === 'url' && (
-                      <div className="mt-4 space-y-3">
-                        <p className="text-sm font-medium text-gray-700">Выберите область для обрезки:</p>
-                        <div className="relative max-w-full overflow-auto bg-gray-100 rounded-lg p-2">
-                          <ReactCrop
-                            crop={crop}
-                            onChange={(_, percentCrop) => setCrop(percentCrop)}
-                            onComplete={(c) => setCompletedCrop(c)}
-                            aspect={800 / 600}
-                            minWidth={200}
-                            minHeight={150}
-                          >
-                            <img
-                              ref={imgRef}
-                              alt="Crop me"
-                              src={imgSrc}
-                              style={{ maxWidth: '100%', maxHeight: '400px' }}
-                              onLoad={(e) => {
-                                const { width, height } = e.currentTarget
-                                const crop = makeAspectCrop(
-                                  {
-                                    unit: '%',
-                                    width: 90,
-                                  },
-                                  800 / 600,
-                                  width,
-                                  height
-                                )
-                                setCrop(centerCrop(crop, width, height))
-                              }}
-                            />
-                          </ReactCrop>
-                        </div>
-                        {completedCrop && (
-                          <div className="space-y-2">
-                            <canvas
-                              ref={previewCanvasRef}
-                              style={{
-                                display: 'none',
-                              }}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!imgRef.current || !previewCanvasRef.current || !completedCrop) {
-                                    return
-                                  }
-
-                                  canvasPreview(
-                                    imgRef.current,
-                                    previewCanvasRef.current,
-                                    completedCrop
-                                  )
-
-                                  previewCanvasRef.current.toBlob(async (blob) => {
-                                    if (!blob) return
-
-                                    setIsUploading(true)
-                                    try {
-                                      const uploadFormData = new FormData()
-                                      uploadFormData.append('file', blob, 'cropped-image.webp')
-
-                                      const response = await fetch('/api/upload', {
-                                        method: 'POST',
-                                        body: uploadFormData,
-                                      })
-
-                                      const data = await response.json()
-
-                                      if (data.success) {
-                                        setFormData({ ...formData, photoUrl: data.url })
-                                        setShowCrop(false)
-                                        setImgSrc('')
-                                        setCrop(undefined)
-                                        setCompletedCrop(undefined)
-                                        alert('Image uploaded and processed successfully!')
-                                      } else {
-                                        alert(data.error || 'Error uploading image')
-                                      }
-                                    } catch (error) {
-                                      console.error('Error uploading file:', error)
-                                      alert('Error uploading image')
-                                    } finally {
-                                      setIsUploading(false)
-                                    }
-                                  }, 'image/webp', 0.85)
-                                }}
-                                disabled={isUploading}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-                              >
-                                {isUploading ? 'Загрузка...' : '✅ Применить обрезку'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowCrop(false)
-                                  setImgSrc('')
-                                  setCrop(undefined)
-                                  setCompletedCrop(undefined)
-                                }}
-                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 active:bg-gray-400 transition-colors min-h-[44px]"
-                              >
-                                Отмена
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {isUploading && (
-                      <p className="mt-2 text-sm text-gray-500">Загрузка и обработка изображения...</p>
-                    )}
-                    {formData.photoUrl && !isUploading && !showCrop && (
-                      <div className="mt-3">
-                        <p className="text-sm text-gray-600 mb-2">Обработанное изображение:</p>
-                        <img
-                          src={formData.photoUrl}
-                          alt="Preview"
-                          className="w-full h-48 object-cover rounded-lg border border-gray-300"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div>
