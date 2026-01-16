@@ -7,15 +7,16 @@ const chatId = process.env.TELEGRAM_CHAT_ID
 let bot: TelegramBot | null = null
 let isPolling = false
 
-if (token && chatId) {
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                    process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL
+
+if (token && chatId && !isBuildTime && typeof window === 'undefined') {
   try {
     bot = new TelegramBot(token, { polling: false })
     
-    if (typeof window === 'undefined') {
-      setTimeout(() => {
-        initializeTelegramPolling()
-      }, 3000)
-    }
+    setTimeout(() => {
+      initializeTelegramPolling()
+    }, 3000)
   } catch (error) {
     console.error('Failed to initialize Telegram bot:', error)
   }

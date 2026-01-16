@@ -20,6 +20,8 @@ COPY . .
 
 # Сборка Next.js
 ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_PHASE phase-production-build
+ENV NODE_ENV production
 RUN npm run build
 
 # Продакшн образ

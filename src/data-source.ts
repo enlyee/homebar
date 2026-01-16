@@ -5,7 +5,29 @@ import { Order } from './entities/Order'
 
 const getDataSourceConfig = () => {
   const databaseUrl = process.env.DATABASE_URL
+  
   if (!databaseUrl) {
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
+    
+    if (isBuildTime) {
+      return {
+        type: 'postgres' as const,
+        host: 'localhost',
+        port: 5432,
+        username: 'postgres',
+        password: 'postgres',
+        database: 'homebar',
+        entities: [Cocktail, Order],
+        synchronize: false,
+        logging: false,
+        extra: {
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 2000,
+        },
+      }
+    }
+    
     throw new Error('DATABASE_URL is not defined')
   }
 
