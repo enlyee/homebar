@@ -32,7 +32,7 @@ export default function CocktailCard({ cocktail, onClick }: CocktailCardProps) {
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          unoptimized={cocktail.photoUrl.startsWith('/uploads/')}
+          unoptimized={true}
           onError={(e) => {
             console.error('Image load error:', cocktail.photoUrl)
             e.currentTarget.src = '/placeholder.svg'

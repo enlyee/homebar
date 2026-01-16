@@ -69,7 +69,7 @@ export default function CocktailModal({
                     alt={cocktail.name}
                     fill
                     className="object-cover"
-                    unoptimized={cocktail.photoUrl.startsWith('/uploads/')}
+                    unoptimized={true}
                     onError={(e) => {
                       console.error('Image load error:', cocktail.photoUrl)
                       setImageError(true)
