@@ -6,20 +6,37 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate",
+    "migration:run": "typeorm-ts-node-commonjs migration:run",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert"
   },
   "dependencies": {
+    "form-data": "^4.0.5",
+    "framer-motion": "^12.26.2",
     "next": "16.1.2",
+    "node-addon-api": "^8.5.0",
+    "node-telegram-bot-api": "^0.67.0",
+    "pg": "^8.17.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-image-crop": "^11.0.10",
+    "reflect-metadata": "^0.2.2",
+    "sharp": "^0.34.5",
+    "typeorm": "^0.3.28",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/node-telegram-bot-api": "^0.64.13",
+    "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.2",
+    "node-gyp": "^12.1.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
