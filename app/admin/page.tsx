@@ -345,7 +345,6 @@ export default function AdminPage() {
 
                         console.log('File selected:', file.name)
 
-                        // Создаем локальный предпросмотр
                         const reader = new FileReader()
                         reader.onerror = () => {
                           console.error('Error reading file')
@@ -440,7 +439,6 @@ export default function AdminPage() {
                                     completedCrop
                                   )
 
-                                  // Конвертируем canvas в blob и загружаем
                                   previewCanvasRef.current.toBlob(async (blob) => {
                                     if (!blob) {
                                       console.error('Failed to create blob')
@@ -613,7 +611,6 @@ export default function AdminPage() {
                                     completedCrop
                                   )
 
-                                  // Конвертируем canvas в blob и загружаем
                                   previewCanvasRef.current.toBlob(async (blob) => {
                                     if (!blob) return
 

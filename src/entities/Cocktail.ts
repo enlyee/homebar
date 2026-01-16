@@ -34,6 +34,4 @@ export class Cocktail {
   @UpdateDateColumn()
   updatedAt!: Date
 
-  // @OneToMany('Order', 'cocktail')
-  // orders!: any[]
 }

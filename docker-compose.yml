@@ -7,9 +7,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-homebar}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-homebar_password}
       POSTGRES_DB: ${POSTGRES_DB:-homebar}
-    # Порт не пробрасываем наружу, доступ только внутри Docker сети
-    # ports:
-    #   - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - uploads_data:/app/public/uploads

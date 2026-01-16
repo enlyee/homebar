@@ -13,7 +13,6 @@ const nextConfig: NextConfig = {
         hostname: '**',
       },
     ],
-    // Разрешаем неоптимизированные изображения для локальных файлов
     unoptimized: false,
   },
   experimental: {

@@ -7,8 +7,7 @@ const chatId = process.env.TELEGRAM_CHAT_ID
 let bot: TelegramBot | null = null
 let isPolling = false
 
-const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
-                    process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
 
 if (token && chatId && !isBuildTime && typeof window === 'undefined') {
   try {
@@ -26,9 +25,6 @@ export function initializeTelegramPolling() {
   const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
   
   if (isBuildTime || !token || !chatId || isPolling || !bot) {
-    if (isBuildTime) {
-      console.log('⏭️  Skipping Telegram bot initialization during build')
-    }
     return
   }
 
@@ -134,7 +130,7 @@ export function initializeTelegramPolling() {
     })
 
     isPolling = true
-    console.log('✅ Telegram bot polling started')
+    console.log('Telegram bot polling started')
   } catch (error) {
     console.error('Failed to start Telegram bot polling:', error)
   }
@@ -332,14 +328,12 @@ export async function sendOrderCompletionNotification(
   }
 }
 
-// Старые функции для обратной совместимости (можно удалить позже)
 export async function sendOrderStatusUpdate(
   orderId: string,
   userName: string,
   cocktailName: string,
   status: string
 ) {
-  // Эта функция больше не используется, но оставлена для обратной совместимости
   console.log('sendOrderStatusUpdate is deprecated, use updateOrderMessage instead')
   return { success: true }
 }
@@ -349,7 +343,6 @@ export async function sendOrderCancellation(
   userName: string,
   cocktailName: string
 ) {
-  // Эта функция больше не используется, но оставлена для обратной совместимости
   console.log('sendOrderCancellation is deprecated, use deleteOrderMessage + sendOrderCompletionNotification instead')
   return { success: true }
 }
