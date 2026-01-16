@@ -20,7 +20,22 @@ export async function POST(request: Request) {
       )
     }
 
-    const uploadsDir = join(process.cwd(), 'public', 'uploads')
+    const cwd = process.cwd()
+    const possibleUploadDirs = [
+      join(cwd, 'public', 'uploads'),
+      join(cwd, 'uploads'),
+      '/app/public/uploads',
+      '/app/uploads',
+    ]
+
+    let uploadsDir = possibleUploadDirs[0]
+    for (const dir of possibleUploadDirs) {
+      if (existsSync(dir)) {
+        uploadsDir = dir
+        break
+      }
+    }
+
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true })
     }
@@ -74,6 +89,17 @@ export async function POST(request: Request) {
       .toBuffer()
 
     await writeFile(filepath, processedImage)
+
+    if (!existsSync(filepath)) {
+      console.error('File was not created:', filepath)
+      return NextResponse.json(
+        { error: 'Failed to save file' },
+        { status: 500 }
+      )
+    }
+
+    console.log('File saved successfully:', filepath)
+    console.log('File exists:', existsSync(filepath))
 
     const imageUrl = `/api/uploads/${filename}`
 
