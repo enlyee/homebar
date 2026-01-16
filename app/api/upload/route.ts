@@ -20,11 +20,25 @@ export async function POST(request: Request) {
       )
     }
 
-    const uploadsDir = join(process.cwd(), 'public', 'uploads')
+    const cwd = process.cwd()
+    const possibleUploadDirs = [
+      join(cwd, 'public', 'uploads'),
+      '/app/public/uploads',
+    ]
+
+    let uploadsDir = possibleUploadDirs[0]
+    for (const dir of possibleUploadDirs) {
+      if (existsSync(dir)) {
+        uploadsDir = dir
+        break
+      }
+    }
 
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true })
     }
+
+    console.log('Using uploads directory:', uploadsDir)
 
     let imageBuffer: Buffer
 
@@ -87,7 +101,7 @@ export async function POST(request: Request) {
     console.log('File saved successfully:', filepath)
     console.log('File exists:', existsSync(filepath))
 
-    const imageUrl = `/uploads/${filename}`
+    const imageUrl = `/api/uploads/${filename}`
 
     return NextResponse.json({
       success: true,
