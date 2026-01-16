@@ -38,6 +38,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     libvips \
+    gosu \
  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV production
@@ -46,20 +47,16 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
-
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
+RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads && chmod -R 755 /app/public/uploads
 
 COPY --from=builder --chown=nextjs:nodejs /app/src ./src
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/typeorm ./node_modules/typeorm
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/reflect-metadata ./node_modules/reflect-metadata
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/sharp ./node_modules/sharp
-
-USER nextjs
 
 EXPOSE 3000
 
@@ -68,4 +65,7 @@ ENV HOSTNAME "0.0.0.0"
 
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 
-CMD ["node", "server.js"]
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

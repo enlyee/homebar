@@ -42,13 +42,6 @@ services:
       - uploads_data:/app/public/uploads
     networks:
       - homebar-network
-    command: >
-      sh -c "
-        echo 'Waiting for database...' &&
-        sleep 5 &&
-        echo 'Starting application...' &&
-        node server.js
-      "
 
 volumes:
   postgres_data:

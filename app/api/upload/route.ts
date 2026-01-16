@@ -30,18 +30,7 @@ export async function POST(request: Request) {
     }
 
     const cwd = process.cwd()
-    const possibleUploadDirs = [
-      '/app/public/uploads',
-      join(cwd, 'public', 'uploads'),
-    ]
-
-    let uploadsDir = possibleUploadDirs[0]
-    for (const dir of possibleUploadDirs) {
-      if (existsSync(dir)) {
-        uploadsDir = dir
-        break
-      }
-    }
+    const uploadsDir = '/app/public/uploads'
 
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true })
@@ -50,6 +39,7 @@ export async function POST(request: Request) {
     console.log('Using uploads directory:', uploadsDir)
     console.log('Current working directory:', cwd)
     console.log('Directory exists:', existsSync(uploadsDir))
+    console.log('Directory is writable:', await checkWritable(uploadsDir))
 
     let imageBuffer: Buffer
 
@@ -102,8 +92,18 @@ export async function POST(request: Request) {
     console.log('Attempting to save file to:', filepath)
     console.log('Uploads directory exists:', existsSync(uploadsDir))
     console.log('Uploads directory is writable:', await checkWritable(uploadsDir))
-    
-    await writeFile(filepath, processedImage)
+
+    try {
+      await writeFile(filepath, processedImage)
+    } catch (writeError: any) {
+      console.error('Error writing file:', writeError)
+      console.error('Error code:', writeError.code)
+      console.error('Error message:', writeError.message)
+      return NextResponse.json(
+        { error: 'Failed to save file', details: writeError.message },
+        { status: 500 }
+      )
+    }
 
     if (!existsSync(filepath)) {
       console.error('File was not created:', filepath)
@@ -117,11 +117,11 @@ export async function POST(request: Request) {
 
     const { stat } = await import('fs/promises')
     const stats = await stat(filepath)
-    console.log('File saved successfully:', filepath)
-    console.log('File exists:', existsSync(filepath))
-    console.log('File size:', stats.size, 'bytes')
+    console.log('✅ File saved successfully:', filepath)
+    console.log('✅ File exists:', existsSync(filepath))
+    console.log('✅ File size:', stats.size, 'bytes')
 
-    const imageUrl = `/api/uploads/${filename}`
+    const imageUrl = `/uploads/${filename}`
 
     return NextResponse.json({
       success: true,
