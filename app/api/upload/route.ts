@@ -20,21 +20,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const cwd = process.cwd()
-    const possibleUploadDirs = [
-      join(cwd, 'public', 'uploads'),
-      join(cwd, 'uploads'),
-      '/app/public/uploads',
-      '/app/uploads',
-    ]
-
-    let uploadsDir = possibleUploadDirs[0]
-    for (const dir of possibleUploadDirs) {
-      if (existsSync(dir)) {
-        uploadsDir = dir
-        break
-      }
-    }
+    const uploadsDir = join(process.cwd(), 'public', 'uploads')
 
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true })
@@ -101,7 +87,7 @@ export async function POST(request: Request) {
     console.log('File saved successfully:', filepath)
     console.log('File exists:', existsSync(filepath))
 
-    const imageUrl = `/api/uploads/${filename}`
+    const imageUrl = `/uploads/${filename}`
 
     return NextResponse.json({
       success: true,
