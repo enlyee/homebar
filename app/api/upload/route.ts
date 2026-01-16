@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
+import { writeFile, mkdir, access } from 'fs/promises'
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, constants } from 'fs'
 import sharp from 'sharp'
+
+async function checkWritable(dir: string): Promise<boolean> {
+  try {
+    await access(dir, constants.W_OK)
+    return true
+  } catch {
+    return false
+  }
+}
 
 const CARD_WIDTH = 800
 const CARD_HEIGHT = 600
@@ -22,8 +31,8 @@ export async function POST(request: Request) {
 
     const cwd = process.cwd()
     const possibleUploadDirs = [
-      join(cwd, 'public', 'uploads'),
       '/app/public/uploads',
+      join(cwd, 'public', 'uploads'),
     ]
 
     let uploadsDir = possibleUploadDirs[0]
@@ -39,6 +48,8 @@ export async function POST(request: Request) {
     }
 
     console.log('Using uploads directory:', uploadsDir)
+    console.log('Current working directory:', cwd)
+    console.log('Directory exists:', existsSync(uploadsDir))
 
     let imageBuffer: Buffer
 
@@ -88,18 +99,27 @@ export async function POST(request: Request) {
       .webp({ quality: 85 })
       .toBuffer()
 
+    console.log('Attempting to save file to:', filepath)
+    console.log('Uploads directory exists:', existsSync(uploadsDir))
+    console.log('Uploads directory is writable:', await checkWritable(uploadsDir))
+    
     await writeFile(filepath, processedImage)
 
     if (!existsSync(filepath)) {
       console.error('File was not created:', filepath)
+      console.error('Uploads directory:', uploadsDir)
+      console.error('Directory exists:', existsSync(uploadsDir))
       return NextResponse.json(
         { error: 'Failed to save file' },
         { status: 500 }
       )
     }
 
+    const { stat } = await import('fs/promises')
+    const stats = await stat(filepath)
     console.log('File saved successfully:', filepath)
     console.log('File exists:', existsSync(filepath))
+    console.log('File size:', stats.size, 'bytes')
 
     const imageUrl = `/api/uploads/${filename}`
 
