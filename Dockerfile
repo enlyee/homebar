@@ -15,13 +15,22 @@ RUN npm install
 # Сборка приложения
 FROM base AS builder
 WORKDIR /app
+
+ARG DATABASE_URL
+ARG TELEGRAM_BOT_TOKEN
+ARG TELEGRAM_CHAT_ID
+
+ENV DATABASE_URL=$DATABASE_URL
+ENV TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
+ENV TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PHASE=phase-production-build
+ENV NODE_ENV=production
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Сборка Next.js
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NEXT_PHASE phase-production-build
-ENV NODE_ENV production
 RUN npm run build
 
 # Продакшн образ

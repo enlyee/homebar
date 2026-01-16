@@ -73,12 +73,21 @@ export async function getDataSource(): Promise<DataSource> {
       const config = getDataSourceConfig()
       dataSource = new DataSource(config)
       
-      if (!dataSource.isInitialized) {
+      const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
+      
+      if (!isBuildTime && !dataSource.isInitialized) {
         await dataSource.initialize()
         console.log('✅ TypeORM DataSource initialized successfully')
+      } else if (isBuildTime) {
+        console.log('⏭️  Skipping DataSource initialization during build')
       }
       return dataSource
     } catch (error: any) {
+      const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
+      if (isBuildTime) {
+        console.log('⏭️  Skipping DataSource initialization error during build:', error?.message || error)
+        return dataSource || new DataSource(getDataSourceConfig())
+      }
       console.error('❌ Error initializing DataSource:', error?.message || error)
       initializationPromise = null
       throw error

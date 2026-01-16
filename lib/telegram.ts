@@ -23,7 +23,12 @@ if (token && chatId && !isBuildTime && typeof window === 'undefined') {
 }
 
 export function initializeTelegramPolling() {
-  if (!token || !chatId || isPolling || !bot) {
+  const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
+  
+  if (isBuildTime || !token || !chatId || isPolling || !bot) {
+    if (isBuildTime) {
+      console.log('⏭️  Skipping Telegram bot initialization during build')
+    }
     return
   }
 
